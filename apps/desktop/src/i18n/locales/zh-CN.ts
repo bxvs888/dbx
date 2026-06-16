@@ -806,6 +806,7 @@
     close: "关闭",
     cancel: "取消",
     save: "保存",
+    retry: "重试",
     more: "更多",
   },
   explain: {
@@ -1115,6 +1116,8 @@
     editView: "编辑视图",
     viewSource: "查看源码",
     viewDdl: "查看 DDL",
+    viewDdlLoading: "正在读取 DDL...",
+    ddlCopied: "DDL 已复制",
     dropObject: "删除对象",
     dropView: "删除视图",
     dropColumn: "删除字段",
