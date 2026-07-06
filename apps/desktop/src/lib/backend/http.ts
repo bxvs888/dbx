@@ -2042,8 +2042,9 @@ export async function deleteHistoryEntry(id: string): Promise<void> {
 // Updates
 // ---------------------------------------------------------------------------
 
-export async function checkForUpdates(): Promise<UpdateInfo> {
-  return get("/api/update/check");
+export async function checkForUpdates(locale?: string): Promise<UpdateInfo> {
+  const query = locale ? `?locale=${encodeURIComponent(locale)}` : "";
+  return get(`/api/update/check${query}`);
 }
 
 export async function checkMcpServerStatus(): Promise<import("@/lib/backend/tauri").McpServerStatus> {

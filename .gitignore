@@ -55,6 +55,7 @@ tmp/
 
 # Generated changelog data
 releases-*.json
+latest-en.json
 
 test.pdb
 portable/

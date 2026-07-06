@@ -1270,8 +1270,8 @@ export async function installMcpServer(): Promise<string> {
   return invoke("install_mcp_server");
 }
 
-export async function checkForUpdates(): Promise<UpdateInfo> {
-  return invoke("check_for_updates");
+export async function checkForUpdates(locale?: string): Promise<UpdateInfo> {
+  return invoke("check_for_updates", { locale });
 }
 
 export async function getSystemProxyUrl(): Promise<string | null> {
