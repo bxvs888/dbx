@@ -251,7 +251,7 @@ export const useConnectionStore = defineStore("connection", () => {
     schema?: string;
     tableName?: string;
   } | null>(null);
-  const sqlFileSource = ref<{ connectionId: string; database: string } | null>(null);
+  const sqlFileSource = ref<{ connectionId: string; database: string; filePath?: string } | null>(null);
   const diagramSource = ref<{
     connectionId: string;
     database: string;
