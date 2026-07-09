@@ -1713,7 +1713,13 @@ export default withEnglishFallback({
     batchTruncateSuccess: "{count} tabelas truncadas",
     copyTableSelected: "Copiar",
     pasteTableSelected: "Colar",
+    toggleCheckbox: "Alternar seleção múltipla",
+    viewList: "Visualização em lista",
+    viewGrid: "Visualização em grade",
     sourceReadOnly: "O código fonte é somente leitura e não pode ser editado.",
+    sortAsc: "Crescente",
+    sortDesc: "Decrescente",
+    sortBy: "Ordenar por",
   },
   structureEditor: {
     title: "Editar estrutura da tabela",

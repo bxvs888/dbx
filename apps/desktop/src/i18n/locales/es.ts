@@ -1714,7 +1714,13 @@ export default withEnglishFallback({
     batchTruncateSuccess: "{count} tablas truncadas",
     copyTableSelected: "Copiar",
     pasteTableSelected: "Pegar",
+    toggleCheckbox: "Alternar selección múltiple",
+    viewList: "Vista de lista",
+    viewGrid: "Vista de cuadrícula",
     sourceReadOnly: "Este código fuente es de solo lectura y no se puede editar.",
+    sortAsc: "ascendente",
+    sortDesc: "descendente",
+    sortBy: "ordenar por",
   },
   structureEditor: {
     title: "Editar estructura de tabla",

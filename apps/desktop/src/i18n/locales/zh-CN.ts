@@ -1783,6 +1783,12 @@ export default withEnglishFallback({
     batchTruncateSuccess: "已截断 {count} 张表",
     copyTableSelected: "复制",
     pasteTableSelected: "粘贴",
+    toggleCheckbox: "切换多选模式",
+    viewList: "列表视图",
+    viewGrid: "平铺视图",
+    sortAsc: "升序",
+    sortDesc: "降序",
+    sortBy: "排序方式",
   },
   structureEditor: {
     title: "编辑表结构",

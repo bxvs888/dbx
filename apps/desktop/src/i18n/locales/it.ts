@@ -1712,7 +1712,13 @@ export default withEnglishFallback({
     batchTruncateSuccess: "Troncate {count} tabelle",
     copyTableSelected: "Copia",
     pasteTableSelected: "Incolla",
+    toggleCheckbox: "Attiva/disattiva selezione multipla",
+    viewList: "Vista elenco",
+    viewGrid: "Vista griglia",
     sourceReadOnly: "Il codice sorgente è di sola lettura, non modificabile.",
+    sortAsc: "Crescente",
+    sortDesc: "Decrescente",
+    sortBy: "Ordina per",
   },
   structureEditor: {
     title: "Modifica Struttura Tabella",
