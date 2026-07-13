@@ -497,6 +497,9 @@ export interface QueryResult {
   has_more?: boolean;
   sourceLabel?: string;
   sourceStatement?: string;
+  /** Absolute offsets in the editor document at execution time. */
+  sourceFrom?: number;
+  sourceTo?: number;
 }
 
 export interface QueryResultRun {

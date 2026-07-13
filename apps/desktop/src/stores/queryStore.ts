@@ -40,7 +40,7 @@ import { frontendQueryTimeoutSecsForSql, queryTimeoutSecsForConnection } from "@
 import { queryResultSourceLabel } from "@/lib/sql/queryResultSource";
 import { sortDataGridRowIndexes, type DataGridSortDirection } from "@/lib/dataGrid/dataGridSort";
 import { normalizeResultPageSize } from "@/lib/dataGrid/paginationPageSize";
-import { splitSqlStatementRanges } from "@/lib/sql/sqlStatementRanges";
+import { executableStatementRanges, splitSqlStatementRanges } from "@/lib/sql/sqlStatementRanges";
 import { externalSqlFileDisplayTitles, normalizeExternalSqlPath } from "@/lib/sql/sqlFileOpen";
 import { clearDataGridPendingSnapshotsForTab } from "@/composables/useDataGridEditor";
 import { buildTabResultSnapshot, deleteTabResultSnapshot, readTabResultSnapshot, tabResultCacheKey, writeTabResultSnapshot } from "@/lib/tabs/tabResultCache";
@@ -137,19 +137,23 @@ function preservedResultIndex(results: QueryResult[], currentIndex: number | und
   return currentIndex;
 }
 
-function annotateQueryResultSources(results: QueryResult[], sql: string, database: string | undefined, databaseType?: DatabaseType): QueryResult[] {
+function annotateQueryResultSources(results: QueryResult[], sql: string, database: string | undefined, databaseType?: DatabaseType, sourceOffset?: number): QueryResult[] {
   const statements = splitSqlStatementRanges(sql, databaseType);
   let statementIndex = 0;
   for (const result of results) {
     const statement = statements[statementIndex++];
     if (!statement) continue;
-    annotateQueryResultSource(result, statement.sql, database, databaseType);
+    annotateQueryResultSource(result, statement.sql, database, databaseType, sourceOffset === undefined ? undefined : { from: sourceOffset + statement.from, to: sourceOffset + statement.to });
   }
   return results;
 }
 
-function annotateQueryResultSource(result: QueryResult, sourceStatement: string, database?: string, databaseType?: DatabaseType): QueryResult {
+function annotateQueryResultSource(result: QueryResult, sourceStatement: string, database?: string, databaseType?: DatabaseType, sourceRange?: { from: number; to: number }): QueryResult {
   result.sourceStatement = sourceStatement;
+  if (sourceRange) {
+    result.sourceFrom = sourceRange.from;
+    result.sourceTo = sourceRange.to;
+  }
   const label = databaseType ? queryResultSourceLabel(sourceStatement, { database, databaseType }) : undefined;
   if (label) result.sourceLabel = label;
   return result;
@@ -2069,7 +2073,7 @@ export const useQueryStore = defineStore("query", () => {
     await executeCurrentSql(tab.sql);
   }
 
-  async function executeCurrentSql(sql: string, options?: { skipRedisSafetyCheck?: boolean }) {
+  async function executeCurrentSql(sql: string, options?: { skipRedisSafetyCheck?: boolean; sourceOffset?: number }) {
     if (!activeTabId.value) return;
     await executeTabSql(activeTabId.value, sql, { resultBaseSql: sql, resultSortedSql: undefined, ...options });
   }
@@ -2485,6 +2489,7 @@ export const useQueryStore = defineStore("query", () => {
       preserveActiveResultIndex?: boolean;
       replaceActiveResultInGroup?: boolean;
       skipRedisSafetyCheck?: boolean;
+      sourceOffset?: number;
       sourceTraceId?: string;
       skipEnsureConnected?: boolean;
     },
@@ -2578,12 +2583,15 @@ export const useQueryStore = defineStore("query", () => {
         console.info("[DBX][executeTabSql:redis:start]", { traceId, db: currentDb, commandCount: commands.length, sql });
 
         const allResults: QueryResult[] = [];
+        const commandRanges = executableStatementRanges(sql, "redis");
         const skipSafety = options?.skipRedisSafetyCheck;
         let hadMutatingCommand = false;
-        for (const command of commands) {
+        for (const [commandIndex, command] of commands.entries()) {
+          const commandRange = commandRanges[commandIndex];
+          const sourceRange = commandRange && options?.sourceOffset !== undefined ? { from: options.sourceOffset + commandRange.from, to: options.sourceOffset + commandRange.to } : undefined;
           try {
             const result = await api.redisExecuteCommand(tab.connectionId, currentDb, command, skipSafety);
-            allResults.push(markQueryResultRowsRaw(annotateQueryResultSource(redisCommandResultToQueryResult(result.value, performance.now() - startedAt, result.command), command)));
+            allResults.push(markQueryResultRowsRaw(annotateQueryResultSource(redisCommandResultToQueryResult(result.value, performance.now() - startedAt, result.command), command, undefined, undefined, sourceRange)));
             // Track db switches from SELECT N so later commands in the same batch run on the right db.
             currentDb = nextRedisCommandDb(currentDb, command, result.value);
             // Write commands (SET/DEL/...) mutate the key set — drop the cached key-name completion
@@ -2593,7 +2601,7 @@ export const useQueryStore = defineStore("query", () => {
               connStore.invalidateCompletionCache(tab.connectionId, String(currentDb));
             }
           } catch (e: any) {
-            allResults.push(annotateQueryResultSource({ columns: ["Error"], rows: [[e?.message ?? String(e)]], affected_rows: 0, execution_time_ms: 0 }, command));
+            allResults.push(annotateQueryResultSource({ columns: ["Error"], rows: [[e?.message ?? String(e)]], affected_rows: 0, execution_time_ms: 0 }, command, undefined, undefined, sourceRange));
           }
         }
         console.info("[DBX][executeTabSql:redis:done]", { traceId, commandCount: commands.length, elapsed: elapsed() });
@@ -2647,9 +2655,10 @@ export const useQueryStore = defineStore("query", () => {
         for (const parsedCommand of mongoCommands) {
           const mongoCommand = parsedCommand.command;
           const sourceStatement = parsedCommand.text;
+          const sourceRange = options?.sourceOffset === undefined ? undefined : { from: options.sourceOffset + parsedCommand.from, to: options.sourceOffset + parsedCommand.to };
           const commandStartedAt = performance.now();
           const annotateMongoResult = (result: QueryResult): QueryResult => {
-            const annotated = annotateQueryResultSource(result, sourceStatement);
+            const annotated = annotateQueryResultSource(result, sourceStatement, undefined, undefined, sourceRange);
             if ("collection" in mongoCommand) {
               annotated.sourceLabel = currentDatabase ? `${currentDatabase}.${mongoCommand.collection}` : mongoCommand.collection;
             }
@@ -2940,7 +2949,7 @@ export const useQueryStore = defineStore("query", () => {
         });
         executionPromise = api.executeMulti(tab.connectionId, executionDatabase, sqlToExecute, executionSchema, executionId, executionOptions);
       }
-      const results = annotateQueryResultSources(markQueryResultsRowsRaw(await withFrontendQueryTimeout(executionPromise, frontendTimeoutSecs, t("editor.queryTimeoutError", { seconds: frontendTimeoutSecs }))), queryBaseSql, sourceLabelDatabase, effectiveDbType);
+      const results = annotateQueryResultSources(markQueryResultsRowsRaw(await withFrontendQueryTimeout(executionPromise, frontendTimeoutSecs, t("editor.queryTimeoutError", { seconds: frontendTimeoutSecs }))), queryBaseSql, sourceLabelDatabase, effectiveDbType, options?.sourceOffset);
       if (hiddenPrimaryKeys.length > 0 && results.length === 1) {
         const hiddenIndexes = hiddenResultColumnIndexes(results[0]!.columns, hiddenPrimaryKeys);
         if (hiddenIndexes.length > 0) results[0]!.hidden_column_indexes = hiddenIndexes;
